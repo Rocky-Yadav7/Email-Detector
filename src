@@ -1,0 +1,78 @@
+Code:
+
+getwd()
+setwd("C:/Users/Rocky Yadav/Downloads/INT234")
+data_spam = read.csv("sms_spam.csv" , stringsAsFactors = FALSE)
+View(data_spam)
+str(data_spam)
+
+data_spam$type = factor(data_spam$type)
+install.packages("tm")
+library(tm)
+
+sms_corpus = VCorpus(VectorSource(data_spam$text))
+sms_corpus
+
+as.character(sms_corpus[[1]])
+lapply(sms_corpus[1:2] , as.character)
+
+sms_corpus_clean = tm_map(sms_corpus , content_transformer(tolower))
+as.character(sms_corpus[[1]])
+as.character(sms_corpus_clean[[1]])
+
+sms_corpus_clean = tm_map(sms_corpus_clean , removeNumbers)
+sms_corpus_clean = tm_map(sms_corpus_clean , removeWords , stopwords())
+sms_corpus_clean = tm_map(sms_corpus_clean , removePunctuation)
+
+install.packages("SnowballC")
+library(SnowballC)
+
+sms_corpus_clean = tm_map(sms_corpus_clean , stemDocument)
+sms_corpus_clean = tm_map(sms_corpus_clean , stripWhitespace)
+
+sms_dtm = DocumentTermMatrix(sms_corpus_clean)
+
+sms_dtm_train = sms_dtm[1:4169,]
+sms_dtm_test = sms_dtm[4170:5559,]
+
+sms_train_labels = data_spam[1:4169,]$type
+sms_test_labels = data_spam[4170:5559,]$type
+
+prop.table(table(sms_train_labels))
+prop.table(table(sms_test_labels))
+
+install.packages("wordcloud")
+library("wordcloud")
+
+wordcloud(sms_corpus_clean , min.freq =  , random.order = FALSE)
+sms_freq_words = findFreqTerms(sms_dtm_train , 5)
+str(sms_freq_words)
+
+sms_dtm_train_freq = sms_dtm_train[ , sms_freq_words]
+sms_dtm_test_freq = sms_dtm_test[ , sms_freq_words]
+
+convert_counts = function(x){
+  x <- ifelse(x>0 , "Yes" , "No")
+}
+
+sms_train <- apply(sms_dtm_train_freq, MARGIN = 2,  convert_counts)
+sms_test <- apply(sms_dtm_test_freq, MARGIN = 2,  convert_counts)
+
+library(e1071)
+sms_classifier <- naiveBayes(sms_train, sms_train_labels)
+sms_test_pred <- predict(sms_classifier, sms_test)
+
+install.packages("gmodels")
+library(gmodels)
+CrossTable(sms_test_pred,sms_test_labels,
+           prop.chisq = FALSE, prop.t = FALSE, dnn = c('predicted', 'actual'))
+
+confusion_matrix <- table(sms_test_pred, sms_test_labels)
+confusion_matrix
+
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(paste("Accuracy:", round(accuracy * 100, 2), "%"))
+
+
+
+
